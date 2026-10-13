@@ -23,3 +23,7 @@ Web app mobile first para gestionar el torneo: inscripción de equipos y listas 
 - Datos personales (DNI, contacto, apto) en `jugadores_datos`, invisibles al público. Apto médico: solo estado y vencimiento.
 - Un jugador, un equipo por torneo. DT y sindical no pueden validar listas.
 - Planilla offline: cola local con `client_uuid` (sin duplicados al sincronizar).
+
+## Pendientes
+- Carga de la lista de buena fe desde Excel (como en JUBU).
+- Contraseña del DT y del jugador = DNI (decisión de la organización; se puede cambiar más adelante).
