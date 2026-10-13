@@ -227,7 +227,7 @@ function zonasUI(box, re) {
               ${S.canchas.filter(x => x.activa).map(x => `<option value="${x.id}" ${z.cancha_base_id === x.id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('')}</select></label></div>
           <div class="list" style="margin-top:8px">${ez.map(e => `<div class="item"><div class="grow"><b>${esc(e.nombre)}</b> <span class="small muted">${esc(sindicato(e.sindicato_id)?.sigla || sindicato(e.sindicato_id)?.nombre || '')}</span></div>${selZona(e)}</div>`).join('') || '<div class="small muted">Sin equipos</div>'}</div></div>`;
       }).join('')}
-      ${sinZona.length && zs.length ? `<div class="card flat" style="margin-top:10px;border-color:var(--sol)"><b>Sin zona (${sinZona.length})</b>
+      ${sinZona.length && zs.length ? `<div class="card flat" style="margin-top:10px;border-color:var(--sol)"><b>Sin zona (${sinZona.length})</b> <span class="small muted">Se ubican solos al tocar "Generar / actualizar", o elegí la zona a mano.</span>
         <div class="list" style="margin-top:8px">${sinZona.map(e => `<div class="item"><div class="grow"><b>${esc(e.nombre)}</b></div>${selZona(e)}</div>`).join('')}</div></div>` : ''}
     </div>`;
   }).join('');
@@ -244,7 +244,8 @@ function zonasUI(box, re) {
     const activas = S.canchas.filter(c => c.activa);
     const nuevas = await q(sb.from('zonas').insert(Array.from({ length: n }, (_, i) => ({
       torneo_id: S.torneo.id, categoria_id: cid, nombre: 'Zona ' + String.fromCharCode(65 + i), orden: i + 1,
-      cancha_base_id: activas.length ? activas[i % activas.length].id : null,
+      // Cancha fija por zona solo si alcanzan las zonas para ocupar todas las canchas; si no, se usan todas.
+      cancha_base_id: activas.length && n >= activas.length ? activas[i % activas.length].id : null,
     }))).select());
     const reparto = repartirZonas(S.equipos.filter(e => e.categoria_id === cid), n);
     for (let i = 0; i < n; i++) {
@@ -266,6 +267,16 @@ function zonasUI(box, re) {
 /** Crea los cruces que faltan, borra los pendientes que ya no corresponden y ubica los nuevos en la grilla. */
 async function generarZona(cid) {
   const zs = S.zonas.filter(z => z.categoria_id === cid);
+  // Equipos inscriptos después de armar las zonas: van a la zona con menos equipos, sin repetir sindicato si se puede.
+  const sueltos = zs.length ? S.equipos.filter(e => e.categoria_id === cid && !zs.some(z => z.id === e.zona_id)) : [];
+  for (const e of sueltos) {
+    const cuenta = z => S.equipos.filter(x => x.zona_id === z.id).length;
+    const min = Math.min(...zs.map(cuenta));
+    const cand = zs.filter(z => cuenta(z) === min);
+    const z = cand.find(z => !S.equipos.some(x => x.zona_id === z.id && x.sindicato_id === e.sindicato_id)) || cand[0];
+    await q(sb.from('equipos').update({ zona_id: z.id }).eq('id', e.id));
+    e.zona_id = z.id;
+  }
   const nuevos = [], borrar = [];
   for (const z of zs) {
     const ids = S.equipos.filter(e => e.zona_id === z.id).map(e => e.id);
@@ -287,7 +298,7 @@ async function generarZona(cid) {
   const ub = programar(S.partidos);
   await guardarPartidos(ub);
   await cargarBase();
-  return `${nuevos.length} partido(s) nuevo(s), ${borrar.length} quitado(s), ${ub.length} ubicado(s) en la grilla`;
+  return `${sueltos.length ? sueltos.length + ' equipo(s) ubicado(s) en zona · ' : ''}${nuevos.length} partido(s) nuevo(s), ${borrar.length} quitado(s), ${ub.length} ubicado(s) en la grilla`;
 }
 
 // ───────── Grilla ─────────

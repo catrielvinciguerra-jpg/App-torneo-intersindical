@@ -72,11 +72,13 @@ export function confirmar(msg, ok = 'Confirmar', tipo = '') {
 /** Botón con estado "cargando" mientras corre la acción. */
 export async function conBoton(btn, fn) {
   if (btn.disabled) return;
+  // Solo los botones muestran "…": en selects e inputs se perdería el valor elegido.
+  const esBoton = btn.tagName === 'BUTTON' || btn.tagName === 'A';
   const txt = btn.innerHTML;
-  btn.disabled = true; btn.innerHTML = '…';
+  btn.disabled = true; if (esBoton) btn.innerHTML = '…';
   try { return await fn(); }
   catch (e) { toast(errMsg(e), 'error'); }
-  finally { btn.disabled = false; btn.innerHTML = txt; }
+  finally { btn.disabled = false; if (esBoton) btn.innerHTML = txt; }
 }
 /** Lee un formulario como objeto. Checkbox → boolean. */
 export function formData(form) {
@@ -90,7 +92,7 @@ export function formData(form) {
 
 // ───────── fechas ─────────
 const TZ = 'America/Argentina/Buenos_Aires';
-export function fmtHora(ts) { return ts ? new Date(ts).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', timeZone: TZ }) : '--:--'; }
+export function fmtHora(ts) { return ts ? new Date(ts).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: TZ }) : '--:--'; }
 export function fmtFecha(d) {
   if (!d) return 'Fecha a definir';
   const x = typeof d === 'string' && d.length === 10 ? new Date(d + 'T12:00:00') : new Date(d);

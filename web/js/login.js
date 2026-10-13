@@ -10,6 +10,10 @@ export async function vistaLogin(root) {
 
   root.innerHTML = cabecera('Ingresar') + `
   <main class="wrap" style="max-width:460px">
+    <div class="center" style="margin:8px 0 16px">
+      <img src="img/logo-cgt.png" alt="CGT · Confederación General del Trabajo" width="140" height="140"
+        style="width:140px;height:140px;object-fit:contain" onerror="this.parentElement.remove()">
+    </div>
     <div class="tabs"><button class="tab ${modo === 'jugador' ? 'on' : ''}" data-m="jugador">Soy jugador/a</button>
       <button class="tab ${modo === 'org' ? 'on' : ''}" data-m="org">Organización · DT · Sindicato</button></div>
     ${modo === 'jugador' ? `

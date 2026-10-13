@@ -200,6 +200,7 @@ function formJugador(e, j, alGuardar) {
         <span>El/la jugador/a fue informado/a y presta su consentimiento para que la organización del torneo guarde estos datos con el único fin de gestionar su inscripción y participación. Puede pedir la baja a la organización en cualquier momento (Ley 25.326).</span></label>` : ''}
       <button class="btn block">Guardar</button>
       ${j ? '<button type="button" class="btn ghost block" id="quitar" style="color:var(--error)">Quitar de la lista</button>' : ''}
+      ${j && S.perfil.rol === 'admin' ? '<button type="button" class="btn ghost block" id="baja" style="color:var(--error)">Borrar todos sus datos (pedido de baja)</button>' : ''}
     </form>`);
   const f = $('form', m.el);
   f.onsubmit = ev => {
@@ -216,5 +217,11 @@ function formJugador(e, j, alGuardar) {
     if (!await confirmar(`¿Quitar a ${j.nombre} ${j.apellido} de la lista?`, 'Quitar', 'danger')) return;
     await q(sb.from('plantel').delete().eq('id', j.id));
     m.close(); toast('Jugador quitado'); alGuardar();
+  });
+  const bj = $('#baja', m.el);
+  if (bj) bj.onclick = () => conBoton(bj, async () => {
+    if (!await confirmar(`¿Borrar definitivamente a ${j.nombre} ${j.apellido}? Se eliminan sus datos personales, su lista y sus estadísticas.`, 'Borrar', 'danger')) return;
+    await q(sb.from('jugadores').delete().eq('id', j.jugador_id));
+    m.close(); toast('Datos del jugador eliminados'); alGuardar();
   });
 }
