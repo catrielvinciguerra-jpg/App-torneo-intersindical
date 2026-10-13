@@ -1,12 +1,12 @@
 // Deportista: convocatoria, acreditación con QR y registro personal. Funciona sin cuenta: token propio.
-import { sb, $, esc, cabecera, fmtHora, fmtFecha, qrSvg, apto, toast, errMsg, descargarIcs, FASES } from './core.js';
+import { sb, $, esc, cabecera, fmtHora, fmtFecha, qrSvg, apto, toast, errMsg, descargarIcs, FASES, LOGO } from './core.js';
 
 export async function vistaJugador(root) {
   let token = null; try { token = localStorage.getItem('jug_token'); } catch {}
-  if (!token) { location.hash = '#/login'; return; }
+  if (!token) { location.hash = '#/inscripcion'; return; }
   const salir = `<button id="jSalir">Salir</button>`;
   root.innerHTML = cabecera('Mi convocatoria', salir) + '<main class="wrap" style="max-width:560px"><div class="vacio">Cargando…</div></main>';
-  $('#jSalir', root).onclick = () => { try { localStorage.removeItem('jug_token'); localStorage.removeItem('jug_cache'); } catch {} location.hash = '#/login'; };
+  $('#jSalir', root).onclick = () => { try { localStorage.removeItem('jug_token'); localStorage.removeItem('jug_cache'); } catch {} location.hash = '#/inscripcion'; };
 
   let f;
   const { data, error } = await sb.rpc('mi_ficha', { p_token: token });
@@ -14,7 +14,7 @@ export async function vistaJugador(root) {
     // Sin señal: mostrar la última ficha guardada (la acreditación tiene que verse igual en la cancha).
     try { f = JSON.parse(localStorage.getItem('jug_cache') || 'null'); } catch {}
     if (!f || !/conexión|fetch/i.test(errMsg(error))) {
-      if (/vencida/i.test(error.message)) { try { localStorage.removeItem('jug_token'); } catch {} location.hash = '#/login'; return; }
+      if (/vencida/i.test(error.message)) { try { localStorage.removeItem('jug_token'); } catch {} location.hash = '#/inscripcion'; return; }
       throw new Error(errMsg(error));
     }
     toast('Sin conexión: mostrando tu última información guardada');
@@ -52,13 +52,13 @@ export async function vistaJugador(root) {
     </div>` : '<div class="card" style="margin-bottom:12px"><b>No tenés partidos pendientes.</b></div>'}
 
     <div class="acred" style="margin-bottom:12px">
-      <div class="small" style="opacity:.8">ACREDITACIÓN · ${esc(e.torneo)}</div>
-      <div class="nombre" style="margin-top:6px">${esc(j.nombre)} ${esc(j.apellido)}</div>
-      <div>${esc(e.equipo)} ${e.dorsal != null ? '· #' + e.dorsal : ''}</div>
-      <div class="small" style="opacity:.85">${esc(e.sindicato)} · ${esc(e.categoria)} · DNI ${esc(j.dni)}</div>
+      <div class="cab">${LOGO}<div><small>Acreditación · ${esc(e.torneo)}</small></div></div>
+      <div class="nombre">${esc(j.nombre)} ${esc(j.apellido)}</div>
+      <div class="small" style="color:#d6ecfa;position:relative;z-index:1">${esc(e.equipo)}${e.dorsal != null ? ' · #' + e.dorsal : ''} · ${esc(e.sindicato)} · DNI ${esc(j.dni)}</div>
       <div class="qr">${qr}</div>
-      <div class="center small" style="margin-top:8px">Mostrá este código en la mesa de tu cancha · <span class="badge b-${ap.cls}">${ap.txt}</span></div>
+      <div class="pie"><span>${esc(e.categoria)}</span><span class="badge b-${ap.cls}">${ap.txt}</span></div>
     </div>
+    <p class="small center" style="margin:-4px 0 12px">Mostrá este QR en la mesa de tu cancha.</p>
 
     <div class="card" style="margin-bottom:12px"><h3>Mi registro</h3>
       <div class="grid2" style="grid-template-columns:repeat(4,1fr)">

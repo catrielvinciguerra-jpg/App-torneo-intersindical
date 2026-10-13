@@ -1,8 +1,8 @@
 // Service worker: la app abre sin señal (la planilla guarda sus datos aparte, en el celular).
-const CACHE = 'torneo-cgt-v2';
+const CACHE = 'torneo-cgt-v3';
 const BASE = ['./', 'index.html', 'css/app.css', 'icon.svg', 'manifest.webmanifest',
   'js/app.js', 'js/core.js', 'js/config.js', 'js/publico.js', 'js/login.js', 'js/jugador.js', 'js/arbitro.js',
-  'js/admin.js', 'js/equipos.js', 'js/fixture.js', 'js/planilla.js'];
+  'js/admin.js', 'js/inscripcion.js', 'js/equipos.js', 'js/fixture.js', 'js/planilla.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(BASE)).then(() => self.skipWaiting()));

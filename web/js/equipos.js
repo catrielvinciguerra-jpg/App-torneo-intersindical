@@ -5,6 +5,7 @@ import { S, sb, q, $, $$, esc, cabecera, accionesSesion, bindSesion, toast, moda
 const APP_URL = () => location.origin + location.pathname;
 
 export async function vistaEquipos(root) {
+  await cargarBase();
   root.innerHTML = cabecera(ROLES[S.perfil.rol] + ' · ' + S.perfil.nombre, accionesSesion()) + '<main class="wrap"><section id="eqBox"></section></main>';
   bindSesion(root);
   await panelEquipos($('#eqBox', root));
@@ -94,6 +95,10 @@ async function detalleEquipo(box, id) {
     .sort((a, b) => (a.dorsal ?? 999) - (b.dorsal ?? 999) || a.apellido.localeCompare(b.apellido));
   const admin = S.perfil.rol === 'admin';
   const editable = admin || ['borrador', 'observada'].includes(e.estado_lista);
+  const [dele, corr] = admin ? await Promise.all([
+    e.delegado_id ? q(sb.from('delegados').select('*').eq('id', e.delegado_id).maybeSingle()) : null,
+    q(sb.from('correcciones').select('*').eq('equipo_id', id).order('created_at', { ascending: false })),
+  ]) : [null, []];
 
   const sinApto = jug.filter(j => apto(j.d).cls === 'error').length;
   const fueraEdad = jug.filter(j => edadOk(j.d, cat) === false).length;
@@ -124,6 +129,12 @@ async function detalleEquipo(box, id) {
       </div>
       ${!editable ? '<p class="small muted">La lista está ' + (e.estado_lista === 'enviada' ? 'en revisión' : 'validada') + '. Para cambios, contactá a la organización.</p>' : ''}
     </div>
+    ${dele ? `<div class="card flat" style="margin-bottom:12px"><h3>DT (jefe de delegación)</h3>
+      <div class="row between"><div><b>${esc(dele.nombre)} ${esc(dele.apellido)}</b><div class="small">DNI ${esc(dele.dni)}${dele.cargo ? ' · ' + esc(dele.cargo) : ''} · ${esc(dele.mail)} · código ${esc(e.codigo)}</div></div>
+      <div class="row">${waBtn(dele.tel, `Hola ${dele.nombre}, te escribimos de la organización del ${S.torneo.nombre} por el equipo ${e.nombre}.`, 'WhatsApp')}<a class="btn ghost sm" href="mailto:${esc(dele.mail)}">Mail</a></div></div></div>` : ''}
+    ${corr.length ? `<div class="card flat" style="margin-bottom:12px"><h3>Pedidos de corrección del DT</h3><div class="list">${corr.map(c => `<div class="item">
+      <span class="badge ${c.resuelta ? 'b-ok' : 'b-warn'}">${c.resuelta ? 'Resuelto' : 'Pendiente'}</span><div class="grow">${esc(c.texto)}<div class="small">${new Date(c.created_at).toLocaleString('es-AR')}</div></div>
+      ${c.resuelta ? '' : `<button class="btn sm ok" data-res="${c.id}">Resuelto</button>`}</div>`).join('')}</div></div>` : ''}
     <div class="card" id="lbf">
       <div class="row between"><h3>Lista de buena fe</h3><button class="btn ghost sm no-export" id="expLbf">⬇ Imagen</button></div>
       <div class="list" style="margin-top:8px">${jug.map(j => {
@@ -144,6 +155,7 @@ async function detalleEquipo(box, id) {
   const on = (sel, fn) => { const b = $(sel, box); if (b) b.onclick = () => fn(b); };
   on('#addJug', () => formJugador(e, null, re));
   $$('[data-j]', box).forEach(it => { if (editable) it.onclick = ev => { if (ev.target.closest('a')) return; formJugador(e, jug.find(j => j.jugador_id === it.dataset.j), re); }; });
+  $$('[data-res]', box).forEach(b => b.onclick = () => conBoton(b, async () => { await q(sb.from('correcciones').update({ resuelta: true }).eq('id', b.dataset.res)); re(); }));
   on('#expLbf', b => conBoton(b, () => exportarImagen($('#lbf', box), 'lista-' + e.nombre)));
   on('#editEq', () => formEquipo(e, re));
   on('#enviar', b => conBoton(b, async () => {

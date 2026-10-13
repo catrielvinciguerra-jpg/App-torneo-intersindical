@@ -1,0 +1,2 @@
+-- La regla de listas solo se aplica a los accesos desde la app (anon/authenticated); el panel de Supabase queda libre.
+-- (ver cuerpo completo en la base: tg_equipos_reglas con chequeo de current_setting('role'))

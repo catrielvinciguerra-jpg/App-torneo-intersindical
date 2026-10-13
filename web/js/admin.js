@@ -16,12 +16,12 @@ async function cargarStaff() {
 
 export async function vistaAdmin(root, tab = 'panel') {
   if (!TABS.some(([k]) => k === tab)) tab = 'panel';
-  await cargarStaff();
+  await Promise.all([cargarBase(), cargarStaff()]);
   try { await resolverLlaves(); } catch { /* sin datos suficientes todavía */ }
   const pendientes = S.equipos.filter(e => e.estado_lista === 'enviada').length;
   root.innerHTML = cabecera('Organización · ' + S.perfil.nombre, `<a href="#/" style="color:#fff"><button>Público</button></a>` + accionesSesion()) + `
     <main class="wrap">
-      <nav class="tabs">${TABS.map(([k, n]) => `<a class="tab ${k === tab ? 'on' : ''}" href="#/admin/${k}" style="text-decoration:none;color:inherit">${n}${k === 'equipos' && pendientes ? `<span class="n">${pendientes}</span>` : ''}</a>`).join('')}</nav>
+      <nav class="tabs">${TABS.map(([k, n]) => `<a class="tab ${k === tab ? 'on' : ''}" href="#/admin/${k}">${n}${k === 'equipos' && pendientes ? `<span class="n">${pendientes}</span>` : ''}</a>`).join('')}</nav>
       <section id="adm"></section>
     </main>`;
   bindSesion(root);
@@ -44,6 +44,7 @@ async function panel(box) {
   const sinArb = ps.filter(p => p.estado === 'programado' && p.inicio && !p.arbitro_id).length;
   const canSinResp = S.canchas.filter(c => c.activa && !c.responsable_id).length;
   const vivo = ps.filter(p => p.estado === 'en_juego');
+  const corrPend = (await q(sb.from('correcciones').select('id').eq('resuelta', false))).length;
   const k = (n, txt, cls, href) => `<a class="kpi ${cls}" href="${href}" style="text-decoration:none;color:inherit"><b>${n}</b><span>${txt}</span></a>`;
   box.innerHTML = `
     <h2 style="margin-bottom:8px">Inscripción</h2>
@@ -55,6 +56,8 @@ async function panel(box) {
       ${k(pl.length, 'Jugadores', 'ok', '#/admin/equipos')}
       ${k(sinApto, 'Sin apto vigente', sinApto ? 'error' : 'ok', '#/admin/equipos')}
       ${k(fueraEdad, 'Fuera de categoría', fueraEdad ? 'error' : 'ok', '#/admin/equipos')}
+      ${k(corrPend, 'Pedidos de corrección', corrPend ? 'warn' : 'ok', '#/admin/equipos')}
+      ${k(S.torneo.inscripcion_abierta ? 'Abierta' : 'Cerrada', 'Inscripción', S.torneo.inscripcion_abierta ? 'ok' : 'warn', '#/admin/torneo')}
     </div>
     <h2 style="margin:16px 0 8px">Organización</h2>
     <div class="kpis">
@@ -89,6 +92,13 @@ async function torneo(box, re) {
         <label class="f">Pts empate<input name="pts_empate" type="number" min="0" value="${t.pts_empate}"></label>
         <label class="f">FP 🟨<input name="fp_amarilla" type="number" min="0" value="${t.fp_amarilla}"></label>
         <label class="f">FP 🟥<input name="fp_roja" type="number" min="0" value="${t.fp_roja}"></label></div>
+      <label class="f">Organiza<input name="organiza" value="${esc(t.organiza || '')}"></label>
+      <div class="card flat"><h3>Inscripción de equipos</h3>
+        <label class="check"><input type="checkbox" name="inscripcion_abierta" ${t.inscripcion_abierta ? 'checked' : ''}> Inscripción abierta (los DT pueden inscribir y corregir)</label>
+        <div class="grid3"><label class="f">Cierre automático<input name="cierre_inscripcion" type="datetime-local" value="${t.cierre_inscripcion ? new Date(t.cierre_inscripcion).toLocaleString('sv-SE', { timeZone: 'America/Argentina/Buenos_Aires' }).slice(0, 16) : ''}"></label>
+          <label class="f">Mín. jugadores<input name="min_jugadores" type="number" min="1" max="40" value="${t.min_jugadores}"></label>
+          <label class="f">Máx. jugadores<input name="max_jugadores" type="number" min="1" max="40" value="${t.max_jugadores}"></label></div></div>
+      <label class="f">Reglamento / circular (se publica en la pestaña Reglamento)<textarea name="reglamento" style="min-height:220px">${esc(t.reglamento || '')}</textarea></label>
       <button class="btn">Guardar</button>
       <p class="small muted" style="margin:0">Si cambiás duración, recambio o descanso, después usá "Reordenar todo lo pendiente" en la grilla.</p>
     </form>
@@ -104,8 +114,10 @@ async function torneo(box, re) {
   const f = $('#fT', box);
   f.onsubmit = ev => { ev.preventDefault(); conBoton($('button', f), async () => {
     const d = formData(f);
-    ['duracion_min', 'intervalo_min', 'descanso_min', 'pts_ganado', 'pts_empate', 'fp_amarilla', 'fp_roja'].forEach(k => d[k] = parseInt(d[k], 10) || 0);
+    ['duracion_min', 'intervalo_min', 'descanso_min', 'pts_ganado', 'pts_empate', 'fp_amarilla', 'fp_roja', 'min_jugadores', 'max_jugadores'].forEach(k => d[k] = parseInt(d[k], 10) || 0);
     d.fecha = d.fecha || null;
+    d.cierre_inscripcion = d.cierre_inscripcion ? new Date(d.cierre_inscripcion + ':00-03:00').toISOString() : null;
+    if (d.min_jugadores > d.max_jugadores) throw new Error('El mínimo de jugadores no puede superar al máximo.');
     await q(sb.from('torneos').update(d).eq('id', t.id)); await cargarBase(); toast('Torneo guardado', 'ok'); re();
   }); };
   const formCat = c => {

@@ -12,7 +12,9 @@ const app = document.getElementById('app');
 
 // Rutas: [patrón, vista, roles permitidos (vacío = pública)]
 const RUTAS = [
-  [/^#\/?$/, vistaPublica, []],
+  [/^#\/?$/, (r) => vistaPublica(r), []],
+  [/^#\/inscripcion$/, (r) => vistaPublica(r, 'insc'), []],
+  [/^#\/fixture$/, (r) => vistaPublica(r, 'fix'), []],
   [/^#\/tv$/, vistaTV, []],
   [/^#\/login$/, vistaLogin, []],
   [/^#\/yo$/, vistaJugador, []],
@@ -43,7 +45,8 @@ async function navegar() {
 
 /** Redibuja la vista actual sin perder la posición (cambios en tiempo real). */
 export function refrescar() {
-  if (document.querySelector('.modal-bg')) return; // no interrumpir un formulario abierto
+  // No interrumpir a quien está cargando datos (modal abierto, inscripción en curso o un campo con foco).
+  if (document.querySelector('.modal-bg, #fIns') || document.activeElement?.matches?.('input,select,textarea')) return;
   const y = window.scrollY;
   if (vistaActual) Promise.resolve(vistaActual()).then(() => window.scrollTo(0, y)).catch(() => {});
 }
@@ -55,8 +58,10 @@ async function iniciar() {
   } catch (e) {
     toast(errMsg(e), 'error');
   }
-  sb.auth.onAuthStateChange(async (ev) => {
-    if (ev === 'SIGNED_OUT' || ev === 'SIGNED_IN') await cargarSesion();
+  sb.auth.onAuthStateChange((ev) => {
+    // Al entrar o salir cambia lo que se puede leer (p. ej. contacto del DT): se recarga todo.
+    // Fuera del callback: llamar a Supabase dentro de él bloquea la librería.
+    if (ev === 'SIGNED_OUT' || ev === 'SIGNED_IN') setTimeout(async () => { await cargarSesion(); try { await cargarBase(); } catch {} }, 0);
   });
   tiempoReal(refrescar);
   window.addEventListener('hashchange', navegar);

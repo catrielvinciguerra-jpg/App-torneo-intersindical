@@ -4,6 +4,24 @@ import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
 
 export const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
 
+/** Cliente para el DT (sin cuenta): su token viaja en un header que la base valida al quitar jugadores. */
+export function sbDT(token) {
+  return createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false, storageKey: 'sb-dt' },
+    global: { headers: { 'x-dt-token': token } },
+  });
+}
+/** "juan PABLO" → "Juan Pablo" (como en JUBU). */
+export function nombrePropio(s) {
+  return String(s || '').trim().replace(/\s+/g, ' ').toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+}
+/** Sugerencia de mail mal escrito (gmial.com → gmail.com). */
+export function sugerirMail(m) {
+  const d = { 'gmial.com': 'gmail.com', 'gmai.com': 'gmail.com', 'gmail.co': 'gmail.com', 'gamil.com': 'gmail.com', 'hotmial.com': 'hotmail.com', 'hotmal.com': 'hotmail.com', 'yahoo.com.ar.': 'yahoo.com.ar', 'outlok.com': 'outlook.com' };
+  const [u, dom] = String(m || '').toLowerCase().trim().split('@');
+  return dom && d[dom] ? `${u}@${d[dom]}` : '';
+}
+
 /** Estado del torneo activo. Se recarga entero ante cualquier cambio (tamaño chico: un torneo de un día). */
 export const S = {
   torneo: null, torneos: [], categorias: [], canchas: [], sindicatos: [], equipos: [], zonas: [], partidos: [],
@@ -234,7 +252,11 @@ export async function qrSvg(texto) {
 }
 
 // ───────── datos ─────────
+// El público no ve el contacto del DT: solo estas columnas.
+const COLS_EQUIPO_PUBLICO = 'id,torneo_id,categoria_id,sindicato_id,nombre,estado_lista,zona_id,color,created_at,codigo';
 export async function cargarBase() {
+  const { data: ses } = await sb.auth.getSession();
+  const logueado = !!ses.session;
   const torneos = await q(sb.from('torneos').select('*').order('created_at'));
   S.torneos = torneos;
   S.torneo = torneos.find(t => t.activo) || torneos[torneos.length - 1] || null;
@@ -244,7 +266,7 @@ export async function cargarBase() {
     q(sb.from('categorias').select('*').eq('torneo_id', tid).order('orden')),
     q(sb.from('canchas').select('*').eq('torneo_id', tid).order('orden')),
     q(sb.from('sindicatos').select('*').order('nombre')),
-    q(sb.from('equipos').select('*').eq('torneo_id', tid).order('nombre')),
+    q(sb.from('equipos').select(logueado ? '*' : COLS_EQUIPO_PUBLICO).eq('torneo_id', tid).order('nombre')),
     q(sb.from('zonas').select('*').eq('torneo_id', tid).order('orden')),
     q(sb.from('partidos').select('*').eq('torneo_id', tid).order('inicio', { nullsFirst: false })),
   ]);
@@ -258,7 +280,6 @@ export function tiempoReal(alCambiar) {
   canal = sb.channel('torneo')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'partidos' }, () => programar())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'eventos' }, () => programar())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'equipos' }, () => programar())
     .subscribe();
   function programar() {
     clearTimeout(tRecarga);
@@ -286,17 +307,16 @@ export function inicioRol(rol) {
 }
 
 // ───────── interfaz común ─────────
-export const LOGO = `<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29" fill="#0b3a82"/><circle cx="32" cy="32" r="20" fill="#fff"/>
-<path d="M32 16l5 9h-10zM20 34l9-3-1 10zM44 34l-9-3 1 10zM26 46l6-6 6 6z" fill="#4fa8e0"/><circle cx="32" cy="33" r="5" fill="#f2b705"/></svg>`;
+export const LOGO = '<img src="img/logo-cgt.png" alt="CGT">';
 
+/** Barra superior de los paneles internos (estilo panel de mesa JUBU). */
 export function cabecera(sub = '', acciones = '') {
-  return `<header class="top"><a class="logo" href="#/" aria-label="Inicio">${LOGO}</a>
-    <div class="tit"><b>${esc(S.torneo?.nombre || 'Torneo Relámpago Intersindical CGT')}</b><span>${esc(sub)}</span></div>${acciones}</header>
-    <div class="franja"></div>`;
+  return `<div class="wrap" style="padding-bottom:0"><header class="top"><a class="logo" href="#/" aria-label="Inicio">${LOGO}</a>
+    <div class="tit"><b>${esc(S.torneo?.nombre || 'Torneo Relámpago Intersindical CGT')}</b><span>${esc(sub)}</span></div>${acciones}</header></div>`;
 }
 export function accionesSesion() {
   if (S.perfil) return `<button id="btnSalir" title="Salir">Salir</button>`;
-  return `<a href="#/login" style="color:#fff;text-decoration:none"><button>Ingresar</button></a>`;
+  return `<a class="tb" href="#/login">Ingresar</a>`;
 }
 export function bindSesion(root) {
   const b = $('#btnSalir', root);

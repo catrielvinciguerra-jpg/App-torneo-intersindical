@@ -1,54 +1,25 @@
-// Ingreso: deportista (mail o WhatsApp + DNI) u organización (mail + clave dada por la organización).
-import { S, sb, $, $$, cabecera, toast, errMsg, conBoton, cargarSesion, inicioRol } from './core.js';
-
-let modo = 'jugador';
+// Acceso de la organización (admin, responsables de cancha y sindicales): mail + clave dada por la organización.
+// DT y jugadores entran desde el portal (Inscripción), como en JUBU.
+import { S, sb, $, cabecera, errMsg, conBoton, cargarSesion, inicioRol } from './core.js';
 
 export async function vistaLogin(root) {
   if (S.perfil) { location.hash = inicioRol(S.perfil.rol); return; }
-  let token = null; try { token = localStorage.getItem('jug_token'); } catch {}
-  if (token && modo === 'jugador') { location.hash = '#/yo'; return; }
-
-  root.innerHTML = cabecera('Ingresar') + `
-  <main class="wrap" style="max-width:460px">
-    <div class="center" style="margin:8px 0 16px">
-      <img src="img/logo-cgt.png" alt="CGT · Confederación General del Trabajo" width="140" height="140"
-        style="width:140px;height:140px;object-fit:contain" onerror="this.parentElement.remove()">
-    </div>
-    <div class="tabs"><button class="tab ${modo === 'jugador' ? 'on' : ''}" data-m="jugador">Soy jugador/a</button>
-      <button class="tab ${modo === 'org' ? 'on' : ''}" data-m="org">Organización · DT · Sindicato</button></div>
-    ${modo === 'jugador' ? `
-    <form class="card stack" id="fJug">
-      <h2>Mi convocatoria</h2>
-      <p class="muted small" style="margin:0">Usá el mail o el WhatsApp que cargó tu DT en la lista de buena fe. La clave es tu DNI.</p>
-      <label class="f">Mail o WhatsApp<input name="ident" autocomplete="username" required placeholder="nombre@mail.com o 11 2345 6789"></label>
-      <label class="f">DNI<input name="dni" inputmode="numeric" autocomplete="current-password" required placeholder="Sin puntos"></label>
-      <button class="btn block">Ver mi convocatoria</button>
-    </form>` : `
-    <form class="card stack" id="fOrg">
+  root.innerHTML = cabecera('Acceso organización') + `
+  <main class="wrap" style="max-width:480px">
+    <form class="card" id="fOrg" novalidate>
       <h2>Ingreso de la organización</h2>
-      <p class="muted small" style="margin:0">Mail y clave entregados por la organización del torneo.</p>
-      <label class="f">Mail<input name="email" type="email" autocomplete="username" required></label>
-      <label class="f">Clave<input name="password" type="password" autocomplete="current-password" required></label>
-      <button class="btn block">Ingresar</button>
-    </form>`}
-    <p class="center"><a href="#/">← Ver fixture y resultados</a></p>
+      <p class="small">Mesa, responsables de cancha y sindicales: mail y clave entregados por la organización.</p>
+      <fieldset>
+        <div class="f full"><label for="o-mail">Mail</label><input id="o-mail" name="email" type="email" autocomplete="username" required></div>
+        <div class="f full"><label for="o-pass">Clave</label><input id="o-pass" name="password" type="password" autocomplete="current-password" required></div>
+      </fieldset>
+      <button class="btn">Ingresar</button>
+    </form>
+    <div class="card flat"><p class="small"><b>¿Sos DT o jugador/a?</b> Entrá por el portal, en la pestaña Inscripción.</p>
+      <a class="btn ghost" href="#/inscripcion">Ir a Inscripción</a></div>
   </main>`;
-
-  $$('[data-m]', root).forEach(b => b.onclick = () => { modo = b.dataset.m; vistaLogin(root); });
-
-  const fj = $('#fJug', root);
-  if (fj) fj.onsubmit = e => {
-    e.preventDefault();
-    conBoton($('button', fj), async () => {
-      const { data, error } = await sb.rpc('login_jugador', { p_ident: fj.ident.value, p_dni: fj.dni.value });
-      if (error) throw new Error(errMsg(error));
-      try { localStorage.setItem('jug_token', data.token); } catch {}
-      toast(`¡Hola ${data.nombre}!`, 'ok');
-      location.hash = '#/yo';
-    });
-  };
   const fo = $('#fOrg', root);
-  if (fo) fo.onsubmit = e => {
+  fo.onsubmit = e => {
     e.preventDefault();
     conBoton($('button', fo), async () => {
       const { error } = await sb.auth.signInWithPassword({ email: fo.email.value.trim(), password: fo.password.value });
