@@ -1,0 +1,9 @@
+{
+  "name": "Torneo Relámpago Intersindical CGT",
+  "short_name": "Torneo CGT",
+  "start_url": "./#/",
+  "display": "standalone",
+  "background_color": "#f4f7fb",
+  "theme_color": "#0b3a82",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
